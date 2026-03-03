@@ -1,6 +1,6 @@
 # точка входа FastAPI
 from fastapi import FastAPI
-from app.db import engine, Base
+from app.db import engine, Base # проблема с импортом из-за ошибки в файле db.py
 from app.routers import routers_user
 
 # Создаем все таблицы в базе данных
