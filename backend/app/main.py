@@ -4,6 +4,7 @@ from app.db import engine, Base # проблема с импортом из-за
 from app.routers import routers_user
 from app.api.auth import router as api_router
 from app.routers import routers_menu
+from app.routers import routers_cart
 
 # Создаем все таблицы в базе данных
 # В продакшене лучше использовать Alembic для миграций
@@ -20,6 +21,7 @@ app = FastAPI(
 app.include_router(routers_user.router)
 app.include_router(api_router)
 app.include_router(routers_menu.router)
+app.include_router(routers_cart.router)
 
 @app.get("/")
 def root():
