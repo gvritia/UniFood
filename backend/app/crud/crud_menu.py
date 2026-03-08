@@ -1,4 +1,3 @@
-# crud/crud_menu.py
 from sqlalchemy.orm import Session
 from app.models.models_menu import Menu
 from app.schemas.schemas_menu import MenuItemCreate, MenuItemUpdate
