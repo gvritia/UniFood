@@ -6,3 +6,4 @@ pydantic
 python-jose[cryptography]  # для JWT
 passlib[bcrypt]             # для хеширования паролей
 python-multipart          # нужен для OAuth2PasswordRequestForm
+argon2-cffi

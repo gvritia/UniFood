@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, Boolean
 from datetime import datetime
 from ..db import Base
 
@@ -12,6 +12,7 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     name = Column(String, nullable=False)
     # phone = Column(String, unique=True, index=True)
+    is_admin: bool = Column(Boolean, default=False, nullable=False)  # ← новое поле
     hashed_password = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 

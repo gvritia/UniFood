@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -18,11 +18,10 @@ def get_menu(
     skip: int = 0,
     limit: int = 100,
     category: str | None = None,
+    q: str | None = Query(None, description="Поиск по названию блюда (нечувствителен к регистру)"),
     db: Session = Depends(get_db)
 ):
-    """Получить список блюд (с фильтром по категории)"""
-    return menu_crud.get_menu_items(db, skip=skip, limit=limit, category=category)
-
+    return menu_crud.get_menu_items(db, skip=skip, limit=limit, category=category, q=q)
 
 @router.get("/{item_id}", response_model=MenuItemResponse)
 def get_menu_item(item_id: int, db: Session = Depends(get_db)):

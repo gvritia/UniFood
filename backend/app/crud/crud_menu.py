@@ -9,15 +9,21 @@ class CRUDMenu:
         return db.query(Menu).filter(Menu.id == item_id).first()
 
     def get_menu_items(
-        self,
-        db: Session,
-        skip: int = 0,
-        limit: int = 100,
-        category: str | None = None
+            self,
+            db: Session,
+            skip: int = 0,
+            limit: int = 100,
+            category: str | None = None,
+            q: str | None = None
     ):
         query = db.query(Menu).offset(skip).limit(limit)
+
         if category:
             query = query.filter(Menu.category == category)
+
+        if q:
+            query = query.filter(Menu.food_name.ilike(f"%{q}%"))
+
         return query.all()
 
     def create_menu_item(self, db: Session, item: MenuItemCreate) -> Menu:

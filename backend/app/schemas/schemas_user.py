@@ -9,6 +9,7 @@ class UserBase(BaseModel):
     # phone : str
     email: EmailStr  # Валидация email
     name: str
+    is_admin: bool = False
 
 
 # Схема для создания пользователя (наследуется от UserBase)
@@ -38,6 +39,7 @@ class UserUpdate(BaseModel):
 class UserResponse(UserBase):
     id: int
     created_at: datetime
+    is_active: bool
 
     # Включаем поддержку ORM (преобразование SQLAlchemy модели в Pydantic)
     model_config = ConfigDict(from_attributes=True)

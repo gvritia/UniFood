@@ -1,4 +1,3 @@
-# api/auth.py
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
@@ -52,7 +51,7 @@ async def get_current_user(
     if user is None:
         raise credentials_exception
 
-    return UserResponse.from_orm(user)  # или .model_validate(user) в pydantic v2
+    return UserResponse.model_validate(user)
 
 
 @router.post("/login", response_model=dict)
@@ -83,7 +82,7 @@ async def login_for_access_token(
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": UserResponse.from_orm(user)
+        "user": UserResponse.model_validate(user)
     }
 
 
