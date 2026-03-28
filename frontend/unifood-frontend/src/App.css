@@ -1,0 +1,23 @@
+/* Основные стили для приложения */
+/* Material-UI обрабатывает большую часть стилизации */
+
+/* Убираем стандартные стили Vite */
+.counter {
+  display: none;
+}
+
+.hero {
+  display: none;
+}
+
+.ticks {
+  display: none;
+}
+
+#next-steps {
+  display: none;
+}
+
+#spacer {
+  display: none;
+}

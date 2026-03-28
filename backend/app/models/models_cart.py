@@ -1,8 +1,6 @@
 from sqlalchemy import Column, Integer, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from ..db import Base
-from app.models.models_menu import Menu
-from app.models.models_user import User
 
 
 class CartItem(Base):
@@ -21,7 +19,3 @@ class CartItem(Base):
     __table_args__ = (
         UniqueConstraint("user_id", "menu_item_id", name="unique_user_menu_item"),
     )
-
-
-# Добавляем обратную связь в модель User (опционально, но удобно)
-User.cart_items = relationship("CartItem", back_populates="user", cascade="all, delete-orphan")

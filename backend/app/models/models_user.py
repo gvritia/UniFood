@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float
+from sqlalchemy.orm import relationship
 from datetime import datetime
 from ..db import Base
 
@@ -11,10 +12,13 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True)
     name = Column(String, nullable=False)
-    # phone = Column(String, unique=True, index=True)
-    is_admin: bool = Column(Boolean, default=False, nullable=False)  # ← новое поле
+    is_admin: bool = Column(Boolean, default=False, nullable=False)
     hashed_password = Column(String, nullable=False)
+    balance = Column(Float, default=0.0, nullable=False)  # Баланс пользователя
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+
+    # Связь с корзиной
+    cart_items = relationship("CartItem", back_populates="user", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<User {self.email}>"

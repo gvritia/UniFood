@@ -2,13 +2,14 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
-from fastapi.middleware.cors import CORSMiddleware  # ← добавил для React
-from app.db import engine, Base # проблема с импортом из-за ошибки в файле db.py
+from fastapi.middleware.cors import CORSMiddleware
+from app.db import engine, Base
 from app.routers import routers_user
 from app.api.auth import router as api_router
 from app.routers import routers_menu
 from app.routers import routers_cart
 from app.routers import routers_order
+from app.routers import routers_profile  # Новый роутер профиля
 import logging
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -30,7 +31,8 @@ app = FastAPI(
 # CORS для фронтенда (React)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=["http://localhost:3000","http://localhost:5173",
+        "http://127.0.0.1:5173", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -75,6 +77,7 @@ app.include_router(api_router)
 app.include_router(routers_menu.router)
 app.include_router(routers_cart.router)
 app.include_router(routers_order.router)
+app.include_router(routers_profile.router)  # Подключаем роутер профиля
 
 @app.get("/")
 def root():
