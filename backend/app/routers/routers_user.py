@@ -4,8 +4,6 @@ from typing import List
 from app.crud import crud_user
 from app.schemas import schemas_user
 from app.db import get_db
-from ..api.dependencies import get_current_admin
-from ..schemas.schemas_user import UserResponse
 
 # Создаем роутер с префиксом /users
 router = APIRouter(
@@ -40,7 +38,6 @@ def create_user(user: schemas_user.UserCreate, db: Session = Depends(get_db)):
 def read_users(
     skip: int = 0,
     limit: int = 100,
-    _current_admin: UserResponse = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
     """

@@ -6,15 +6,14 @@ from typing import Optional
 
 # Базовая схема пользователя (общие поля)
 class UserBase(BaseModel):
-    # phone : str
     email: EmailStr  # Валидация email
     name: str
-    is_admin: bool = False
 
 
 # Схема для создания пользователя (наследуется от UserBase)
 class UserCreate(UserBase):
     password: str  # Пароль (не хешированный)
+    is_admin: bool = False
 
     # Конфигурация для Pydantic v2
     model_config = {
@@ -38,13 +37,14 @@ class UserUpdate(BaseModel):
 # Схема для ответа (то, что возвращаем клиенту)
 class UserResponse(UserBase):
     id: int
+    is_admin: bool
+    balance: float
     created_at: datetime
-    is_active: bool
 
     # Включаем поддержку ORM (преобразование SQLAlchemy модели в Pydantic)
     model_config = ConfigDict(from_attributes=True)
 
 
-# Схема для отображения в списке (без чувствительных данных)
-class UserInDB(UserResponse):
-    hashed_password: str  # Только для внутреннего использования
+# Схема для обновления баланса
+class BalanceUpdate(BaseModel):
+    amount: float  # Сумма для пополнения (положительная) или списания (отрицательная)

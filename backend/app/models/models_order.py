@@ -36,4 +36,6 @@ class OrderItem(Base):
     quantity = Column(Integer, nullable=False)
     price_at_order = Column(Float, nullable=False)   # цена на момент заказа (фиксация)
 
+    # Связи
     order = relationship("Order", back_populates="items")
+    menu_item = relationship("Menu")  # Добавляем связь с меню

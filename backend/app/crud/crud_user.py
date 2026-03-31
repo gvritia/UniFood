@@ -85,6 +85,17 @@ class CRUDUser:
         db.commit()
         return db_user
 
+    def update_balance(self, db: Session, user_id: int, amount: float):
+        """Обновить баланс пользователя (пополнение или списание)"""
+        db_user = self.get_user(db, user_id)
+        if not db_user:
+            return None
+
+        db_user.balance += amount
+        db.commit()
+        db.refresh(db_user)
+        return db_user
+
 
 # Создаем экземпляр CRUD для использования в других модулях
 user = CRUDUser()

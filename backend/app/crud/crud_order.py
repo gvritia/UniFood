@@ -4,26 +4,43 @@ from datetime import datetime
 from sqlalchemy.orm import selectinload
 from app.models.models_order import Order, OrderItem, OrderStatus
 from app.models.models_cart import CartItem
+from app.models.models_user import User
 from app.services.iiko_stub import iiko_stub
 from app.services.payment_stub import payment_stub
 
+
 def create_order_from_cart(db: Session, user_id: int) -> Order:
+    # Получаем пользователя
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise ValueError("Пользователь не найден")
+
+    # Получаем товары в корзине
     cart_items = db.query(CartItem).filter(CartItem.user_id == user_id).all()
     if not cart_items:
         raise ValueError("Корзина пуста")
 
+    # Считаем общую сумму
     total_price = sum(ci.quantity * (ci.menu_item.price if ci.menu_item else 0) for ci in cart_items)
-    items_data = [...]  # твой код остаётся
 
-    # === ИМИТАЦИЯ ОПЛАТЫ ===
-    payment_result = payment_stub.process_payment({
-        "total": total_price,
-        "user_id": user_id,
-        "card_last4": "4242"  # можно передавать из фронта в будущем
-    })
+    # Проверяем баланс пользователя
+    if user.balance < total_price:
+        raise ValueError(
+            f"Недостаточно средств на балансе. Текущий баланс: {user.balance:.2f} ₽, требуется: {total_price:.2f} ₽")
 
-    if payment_result["status"] != "success":
-        raise ValueError("Оплата не прошла")
+    # Списываем средства с баланса
+    user.balance -= total_price
+
+    # Формируем данные для отправки в iiko
+    items_data = [
+        {
+            "menu_item_id": ci.menu_item_id,
+            "name": ci.menu_item.food_name if ci.menu_item else "Unknown",
+            "quantity": ci.quantity,
+            "price": ci.menu_item.price if ci.menu_item else 0
+        }
+        for ci in cart_items
+    ]
 
     # Имитация отправки в iiko
     order_data_for_stub = {
@@ -67,20 +84,18 @@ def create_order_from_cart(db: Session, user_id: int) -> Order:
 
 
 def get_user_orders(db: Session, user_id: int):
-    stmt = (
-        select(Order)
-        .where(Order.user_id == user_id)
+    return (
+        db.query(Order)
+        .filter(Order.user_id == user_id)
         .order_by(Order.created_at.desc())
-        .options(selectinload(Order.items).selectinload(OrderItem.menu_item))
+        .all()
     )
-    return db.scalars(stmt).all()
 
 
 def get_order(db: Session, order_id: int, user_id: int) -> Order | None:
     return (
         db.query(Order)
         .filter(Order.id == order_id, Order.user_id == user_id)
-        .options(selectinload(Order.items).selectinload(OrderItem.menu_item))
         .first()
     )
 
