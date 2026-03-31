@@ -1,37 +1,40 @@
-from sqlalchemy.orm import Session
-from sqlalchemy import select
-from datetime import datetime
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import Session, selectinload
+from datetime import datetime, timezone
 from app.models.models_order import Order, OrderItem, OrderStatus
 from app.models.models_cart import CartItem
 from app.models.models_user import User
 from app.services.iiko_stub import iiko_stub
-from app.services.payment_stub import payment_stub
+from app.exceptions import CartEmptyException, InsufficientBalanceException
 
 
 def create_order_from_cart(db: Session, user_id: int) -> Order:
-    # Получаем пользователя
+    """Создать заказ из корзины авторизованного пользователя"""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise ValueError("Пользователь не найден")
 
-    # Получаем товары в корзине
-    cart_items = db.query(CartItem).filter(CartItem.user_id == user_id).all()
+    # Получаем корзину с полными данными блюд
+    cart_items = (
+        db.query(CartItem)
+        .filter(CartItem.user_id == user_id)
+        .options(selectinload(CartItem.menu_item))
+        .all()
+    )
+
     if not cart_items:
-        raise ValueError("Корзина пуста")
+        raise CartEmptyException()
 
-    # Считаем общую сумму
-    total_price = sum(ci.quantity * (ci.menu_item.price if ci.menu_item else 0) for ci in cart_items)
+    total_price = sum(
+        ci.quantity * (ci.menu_item.price if ci.menu_item else 0)
+        for ci in cart_items
+    )
 
-    # Проверяем баланс пользователя
     if user.balance < total_price:
-        raise ValueError(
-            f"Недостаточно средств на балансе. Текущий баланс: {user.balance:.2f} ₽, требуется: {total_price:.2f} ₽")
+        raise InsufficientBalanceException(balance=user.balance, required=total_price)
 
-    # Списываем средства с баланса
     user.balance -= total_price
 
-    # Формируем данные для отправки в iiko
+    # Данные для iiko stub
     items_data = [
         {
             "menu_item_id": ci.menu_item_id,
@@ -42,14 +45,12 @@ def create_order_from_cart(db: Session, user_id: int) -> Order:
         for ci in cart_items
     ]
 
-    # Имитация отправки в iiko
-    order_data_for_stub = {
+    order_number = iiko_stub.send_order({
         "user_id": user_id,
         "total": total_price,
         "items": items_data,
-        "created_at": datetime.utcnow().isoformat()
-    }
-    order_number = iiko_stub.send_order(order_data_for_stub)
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
 
     # Создаём заказ
     new_order = Order(
@@ -59,31 +60,33 @@ def create_order_from_cart(db: Session, user_id: int) -> Order:
         order_number=order_number
     )
     db.add(new_order)
-    db.flush()  # получаем id заказа
+    db.flush()
 
-    # Создаём позиции заказа (с фиксацией цены на момент заказа)
+    # Позиции заказа
     for ci in cart_items:
-        order_item = OrderItem(
+        db.add(OrderItem(
             order_id=new_order.id,
             menu_item_id=ci.menu_item_id,
             quantity=ci.quantity,
             price_at_order=ci.menu_item.price if ci.menu_item else 0.0
-        )
-        db.add(order_item)
+        ))
 
-    # Очищаем корзину
+    # Очистка корзины
     db.query(CartItem).filter(CartItem.user_id == user_id).delete()
 
     db.commit()
     db.refresh(new_order)
 
-    # Подгружаем items для ответа
+    # Подгружаем связи для полного ответа
     db.refresh(new_order, attribute_names=["items"])
+    for item in new_order.items:
+        db.refresh(item, attribute_names=["menu_item"])
 
     return new_order
 
 
 def get_user_orders(db: Session, user_id: int):
+    """История заказов пользователя"""
     return (
         db.query(Order)
         .filter(Order.user_id == user_id)
@@ -93,17 +96,21 @@ def get_user_orders(db: Session, user_id: int):
 
 
 def get_order(db: Session, order_id: int, user_id: int) -> Order | None:
+    """Получить один заказ с полными данными"""
     return (
         db.query(Order)
         .filter(Order.id == order_id, Order.user_id == user_id)
+        .options(selectinload(Order.items).selectinload(OrderItem.menu_item))
         .first()
     )
 
 
 def update_order_status(db: Session, order_id: int, new_status: OrderStatus) -> Order | None:
+    """Изменить статус заказа"""
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         return None
+
     order.status = new_status
     db.commit()
     db.refresh(order)

@@ -13,7 +13,25 @@ from app.routers import routers_profile  # Новый роутер профил�
 from app.routers import routers_admin
 import logging
 from starlette.middleware.base import BaseHTTPMiddleware
+from app.exceptions import UniFoodException
 
+# ====================== ОБРАБОТЧИКИ ИСКЛЮЧЕНИЙ ======================
+@app.exception_handler(UniFoodException)
+async def unifood_exception_handler(request: Request, exc: UniFoodException):
+    logger.warning(f"UniFoodException: {exc.detail}")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail}
+    )
+
+
+@app.exception_handler(ValueError)
+async def value_error_handler(request: Request, exc: ValueError):
+    logger.warning(f"ValueError: {str(exc)}")
+    return JSONResponse(
+        status_code=400,
+        content={"detail": str(exc)}
+    )
 # Настройка логгера
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

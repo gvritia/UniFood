@@ -1,32 +1,43 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any
-
 from datetime import datetime, timezone
 
 from ..db import get_db
 from ..api.auth import get_current_user
 from ..schemas.schemas_user import UserResponse
 from ..schemas.schemas_order import OrderResponse, OrderStatusUpdate
+from ..schemas.schemas_cart import CartItemCreate
 from ..crud.crud_order import create_order_from_cart, get_user_orders, get_order, update_order_status
+from ..crud.crud_cart import add_to_cart, clear_cart
 from ..crud.crud_menu import menu_crud
 from ..services.payment_stub import payment_stub
 from ..services.iiko_stub import iiko_stub
+from ..services.order_tasks import change_order_status_after_delay
 from ..models.models_order import Order, OrderItem, OrderStatus
+from app.exceptions import CartEmptyException, InsufficientBalanceException
+
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
 
 @router.post("/", response_model=OrderResponse, status_code=201)
 def create_order(
+    background_tasks: BackgroundTasks,          # ← добавлено
     current_user: UserResponse = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Создать заказ из текущей корзины (имитация оплаты + отправка в iiko)"""
+    """Создать заказ из текущей корзины"""
     try:
         order = create_order_from_cart(db, current_user.id)
+
+        # Автоматическая смена статуса в фоне
+        background_tasks.add_task(change_order_status_after_delay, order.id, delay_seconds=40)
+
         return order
-    except ValueError as e:
+    except (CartEmptyException, InsufficientBalanceException) as e:
+        raise e
+    except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -58,7 +69,7 @@ def change_order_status(
     current_user: UserResponse = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Изменить статус заказа (для демонстрации, в реальности — только админ/официант)"""
+    """Изменить статус заказа (для демонстрации)"""
     updated = update_order_status(db, order_id, status_update.status)
     if not updated:
         raise HTTPException(status_code=404, detail="Заказ не найден")
@@ -69,7 +80,7 @@ def change_order_status(
 
 @router.post("/guest", response_model=OrderResponse)
 def create_guest_order(
-    order_data: Dict[str, Any],   # ожидаем {"items": [...], "total": float}
+    order_data: Dict[str, Any],
     db: Session = Depends(get_db)
 ):
     """Создание заказа для гостя (без авторизации)"""
@@ -101,23 +112,20 @@ def create_guest_order(
             "price": menu_item.price
         })
 
-    # Проверяем, что фронт не подделал сумму
     if abs(total - float(order_data["total"])) > 0.01:
         raise HTTPException(status_code=400, detail="Сумма не совпадает с расчётом на сервере")
 
-    # Имитация оплаты
+    # Имитация оплаты и отправки в iiko
     payment_stub.process_payment({"total": total})
 
-    # Имитация отправки в iiko
     stub_data = {
-        "user_id": None,  # гость
+        "user_id": None,
         "total": total,
         "items": items_data,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     order_number = iiko_stub.send_order(stub_data)
 
-    # Создаём заказ (user_id = None для гостя)
     new_order = Order(
         user_id=None,
         total_price=total,
@@ -125,11 +133,10 @@ def create_guest_order(
         order_number=order_number
     )
     db.add(new_order)
-    db.flush()  # получаем id
+    db.flush()
 
-    # Сохраняем позиции
     for it in items:
-        menu_item = menu_crud.get_menu_item(db, it["menu_item_id"])  # уже проверяли, но для безопасности
+        menu_item = menu_crud.get_menu_item(db, it["menu_item_id"])
         db.add(OrderItem(
             order_id=new_order.id,
             menu_item_id=it["menu_item_id"],
@@ -139,5 +146,38 @@ def create_guest_order(
 
     db.commit()
     db.refresh(new_order, attribute_names=["items"])
+
+    return new_order
+
+
+@router.post("/{order_id}/repeat", response_model=OrderResponse, status_code=201)
+def repeat_order(
+    order_id: int,
+    background_tasks: BackgroundTasks,
+    current_user: UserResponse = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Повторить предыдущий заказ"""
+    order = get_order(db, order_id, current_user.id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Заказ не найден")
+
+    if not order.items:
+        raise HTTPException(status_code=400, detail="В заказе нет товаров")
+
+    # Очищаем текущую корзину и добавляем товары из прошлого заказа
+    clear_cart(db, current_user.id)
+
+    for item in order.items:
+        add_to_cart(db, current_user.id, CartItemCreate(
+            menu_item_id=item.menu_item_id,
+            quantity=item.quantity
+        ))
+
+    # Создаём новый заказ
+    new_order = create_order_from_cart(db, current_user.id)
+
+    # Запускаем автоматическую смену статуса
+    background_tasks.add_task(change_order_status_after_delay, new_order.id, delay_seconds=40)
 
     return new_order
