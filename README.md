@@ -96,9 +96,30 @@ C:\Projects\UniFood\
 
 ```
 UniFood/
- ├── backend/
- ├── frontend/
- └── README.md
+├── backend/              # FastAPI бэкенд
+│   ├── app/
+│   │   ├── api/         # API эндпоинты (auth)
+│   │   ├── crud/        # CRUD операции
+│   │   ├── models/      # SQLAlchemy модели
+│   │   ├── routers/     # API роутеры
+│   │   ├── schemas/     # Pydantic схемы
+│   │   ├── services/    # Сервисы (payment, iiko stubs)
+│   │   ├── config.py    # Конфигурация
+│   │   ├── db.py        # Настройки БД
+│   │   └── main.py      # Точка входа
+│   ├── .env             # Переменные окружения
+│   └── requirements.txt # Зависимости Python
+│
+└── frontend/
+    └── unifood-frontend/    # React фронтенд
+        ├── src/
+        │   ├── api/         # API клиенты
+        │   ├── components/  # UI компоненты
+        │   ├── contexts/    # React Context
+        │   ├── pages/       # Страницы
+        │   └── App.jsx      # Главный компонент
+        ├── .env             # Переменные окружения
+        └── package.json     # Зависимости Node.js
 ```
 
 ---
