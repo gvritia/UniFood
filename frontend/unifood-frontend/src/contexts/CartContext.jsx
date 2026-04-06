@@ -61,10 +61,12 @@ export const CartProvider = ({ children }) => {
       } else {
         await cartApi.updateQuantity(cartItemId, quantity);
       }
-      await fetchCart();
     } catch (error) {
       console.error('Ошибка обновления количества:', error);
       throw error;
+    } finally {
+      // Всегда обновляем корзину, чтобы UI соответствовал реальности на сервере
+      await fetchCart();
     }
   };
 

@@ -38,7 +38,10 @@ def create_order(
     except (CartEmptyException, InsufficientBalanceException) as e:
         raise e
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        import traceback
+        print(f"ERROR creating order: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=400, detail=f"Ошибка при создании заказа: {str(e)}")
 
 
 @router.get("/", response_model=List[OrderResponse])
@@ -132,21 +135,25 @@ def create_guest_order(
         status=OrderStatus.NEW,
         order_number=order_number
     )
-    db.add(new_order)
-    db.flush()
-
+    
+    # Добавляем позиции через коллекцию, чтобы SQLAlchemy сам всё разрулил
     for it in items:
         menu_item = menu_crud.get_menu_item(db, it["menu_item_id"])
-        db.add(OrderItem(
-            order_id=new_order.id,
+        new_order.items.append(OrderItem(
             menu_item_id=it["menu_item_id"],
             quantity=it["quantity"],
             price_at_order=menu_item.price
         ))
 
-    db.commit()
-    db.refresh(new_order, attribute_names=["items"])
+    db.add(new_order)
+    
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
+    db.refresh(new_order)
     return new_order
 
 

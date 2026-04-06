@@ -13,7 +13,8 @@ def create_order_from_cart(db: Session, user_id: int) -> Order:
     if not user:
         raise ValueError("Пользователь не найден")
 
-    # Получаем корзину с полными данными блюд
+    # Получаем корзину. Используем .all(), чтобы сразу выгрузить всё в память.
+    # selectinload гарантирует, что данные о блюдах будут загружены одним махом.
     cart_items = (
         db.query(CartItem)
         .filter(CartItem.user_id == user_id)
@@ -24,17 +25,15 @@ def create_order_from_cart(db: Session, user_id: int) -> Order:
     if not cart_items:
         raise CartEmptyException()
 
-    total_price = sum(
-        ci.quantity * (ci.menu_item.price if ci.menu_item else 0)
-        for ci in cart_items
-    )
+    total_price = sum(ci.quantity * (ci.menu_item.price if ci.menu_item else 0) for ci in cart_items)
 
     if user.balance < total_price:
         raise InsufficientBalanceException(balance=user.balance, required=total_price)
 
+    # Уменьшаем баланс
     user.balance -= total_price
 
-    # Данные для iiko stub
+    # Формируем данные для внешней системы (stub)
     items_data = [
         {
             "menu_item_id": ci.menu_item_id,
@@ -59,29 +58,28 @@ def create_order_from_cart(db: Session, user_id: int) -> Order:
         status=OrderStatus.NEW,
         order_number=order_number
     )
-    db.add(new_order)
-    db.flush()
-
-    # Позиции заказа
+    
+    # Добавляем позиции заказа, НЕ используя flush() раньше времени
     for ci in cart_items:
-        db.add(OrderItem(
-            order_id=new_order.id,
+        new_order.items.append(OrderItem(
             menu_item_id=ci.menu_item_id,
             quantity=ci.quantity,
             price_at_order=ci.menu_item.price if ci.menu_item else 0.0
         ))
+    
+    db.add(new_order)
 
-    # Очистка корзины
-    db.query(CartItem).filter(CartItem.user_id == user_id).delete()
+    # Очистка корзины ПЕРЕД коммитом. 
+    # Используем синхронизацию session=False, чтобы SQLite не ругался на активные объекты.
+    db.query(CartItem).filter(CartItem.user_id == user_id).delete(synchronize_session=False)
 
-    db.commit()
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise e
+
     db.refresh(new_order)
-
-    # Подгружаем связи для полного ответа
-    db.refresh(new_order, attribute_names=["items"])
-    for item in new_order.items:
-        db.refresh(item, attribute_names=["menu_item"])
-
     return new_order
 
 

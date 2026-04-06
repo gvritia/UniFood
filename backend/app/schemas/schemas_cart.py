@@ -21,7 +21,7 @@ class CartItemUpdate(BaseModel):
 class CartItemResponse(CartItemBase):
     id: int
     user_id: int
-    menu_item: MenuItemResponse      # вложенный товар с ценой, названием и т.д.
+    menu_item: Optional[MenuItemResponse] = None      # вложенный товар с ценой, названием и т.д.
     created_at: Optional[datetime] = None  # если добавишь поле в модель
 
     model_config = ConfigDict(from_attributes=True)

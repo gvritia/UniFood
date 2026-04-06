@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   Container, Typography, Paper, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Button, Box, IconButton,
-  Divider, Alert, Chip
+  Divider, Alert, Chip, Card, CardContent
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
@@ -109,9 +109,10 @@ const CartPage = () => {
         </Paper>
       ) : (
         <>
-          <TableContainer component={Paper} sx={{ mt: 4 }}>
+          {/* Вид для десктопа (Таблица) */}
+          <TableContainer component={Paper} sx={{ mt: 4, display: { xs: 'none', sm: 'block' } }}>
             <Table>
-              <TableHead>
+              <TableHead sx={{ bgcolor: '#f5f5f5' }}>
                 <TableRow>
                   <TableCell>Блюдо</TableCell>
                   <TableCell align="right">Цена</TableCell>
@@ -124,42 +125,30 @@ const CartPage = () => {
                 {cartItems.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>
-                      {item.menu_item?.food_name || 'Блюдо удалено'}
+                      <Typography fontWeight="bold">{item.menu_item?.food_name || 'Блюдо удалено'}</Typography>
                       {item.menu_item?.category && (
-                        <Typography variant="caption" color="text.secondary" display="block">
+                        <Typography variant="caption" color="text.secondary">
                           {item.menu_item.category}
                         </Typography>
                       )}
                     </TableCell>
-                    <TableCell align="right">
-                      {item.menu_item?.price || 0} ₽
-                    </TableCell>
+                    <TableCell align="right">{item.menu_item?.price || 0} ₽</TableCell>
                     <TableCell align="center">
-                      <IconButton
-                        size="small"
-                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                      >
-                        <RemoveIcon />
-                      </IconButton>
-                      <Typography component="span" sx={{ mx: 2 }}>
-                        {item.quantity}
-                      </Typography>
-                      <IconButton
-                        size="small"
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                      >
-                        <AddIcon />
-                      </IconButton>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <IconButton size="small" onClick={() => updateQuantity(item.id, item.quantity - 1)}>
+                          <RemoveIcon />
+                        </IconButton>
+                        <Typography sx={{ mx: 2, minWidth: 20, textAlign: 'center' }}>{item.quantity}</Typography>
+                        <IconButton size="small" onClick={() => updateQuantity(item.id, item.quantity + 1)}>
+                          <AddIcon />
+                        </IconButton>
+                      </Box>
                     </TableCell>
                     <TableCell align="right" sx={{ fontWeight: 'bold' }}>
                       {(item.menu_item?.price * item.quantity || 0).toFixed(2)} ₽
                     </TableCell>
                     <TableCell align="center">
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => removeItem(item.id)}
-                      >
+                      <IconButton color="error" onClick={() => removeItem(item.id)}>
                         <DeleteIcon />
                       </IconButton>
                     </TableCell>
@@ -168,6 +157,44 @@ const CartPage = () => {
               </TableBody>
             </Table>
           </TableContainer>
+
+          {/* Вид для мобилок (Карточки) */}
+          <Box sx={{ display: { xs: 'block', sm: 'none' }, mt: 2 }}>
+            {cartItems.map((item) => (
+              <Card key={item.id} sx={{ mb: 2, border: '1px solid #eee' }} elevation={0}>
+                <CardContent sx={{ pb: 1 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight="bold">
+                        {item.menu_item?.food_name || 'Блюдо удалено'}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {item.menu_item?.price} ₽ / шт.
+                      </Typography>
+                    </Box>
+                    <IconButton color="error" size="small" onClick={() => removeItem(item.id)}>
+                      <DeleteIcon />
+                    </IconButton>
+                  </Box>
+                  
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                      <IconButton size="small" onClick={() => updateQuantity(item.id, item.quantity - 1)}>
+                        <RemoveIcon fontSize="small" />
+                      </IconButton>
+                      <Typography sx={{ mx: 1, fontWeight: 'bold' }}>{item.quantity}</Typography>
+                      <IconButton size="small" onClick={() => updateQuantity(item.id, item.quantity + 1)}>
+                        <AddIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                    <Typography variant="subtitle1" fontWeight="bold" color="primary">
+                      {(item.menu_item?.price * item.quantity || 0).toFixed(2)} ₽
+                    </Typography>
+                  </Box>
+                </CardContent>
+              </Card>
+            ))}
+          </Box>
 
           <Paper sx={{ p: 3, mt: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>

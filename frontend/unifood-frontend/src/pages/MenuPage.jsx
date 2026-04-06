@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import {
   Container, Grid, Card, CardMedia, CardContent, CardActions,
   Typography, Button, TextField, Chip, Box, Fab, CircularProgress,
-  Dialog, DialogTitle, DialogContent, DialogActions, IconButton
+  Dialog, DialogTitle, DialogContent, DialogActions, IconButton,
+  Snackbar, Alert
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
@@ -19,6 +20,7 @@ const MenuPage = () => {
   const [selectedCategory, setSelectedCategory] = useState('Все');
   const [selectedDish, setSelectedDish] = useState(null);
   const [quantity, setQuantity] = useState(1);
+  const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
   
   const { addToCart } = useCart();
   const { isAuthenticated } = useAuth();
@@ -65,10 +67,14 @@ const MenuPage = () => {
       await addToCart(selectedDish.id, quantity);
       setSelectedDish(null);
       setQuantity(1);
+      setToast({ open: true, message: 'Блюдо добавлено в корзину!', severity: 'success' });
     } catch (error) {
       console.error('Ошибка добавления в корзину:', error);
+      setToast({ open: true, message: 'Ошибка при добавлении в корзину', severity: 'error' });
     }
   };
+
+  const closeToast = () => setToast(prev => ({ ...prev, open: false }));
 
   const openDishModal = (dish) => {
     setSelectedDish(dish);
@@ -124,14 +130,16 @@ const MenuPage = () => {
       ) : (
         <Grid container spacing={3}>
           {items.map((item) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={item.id}>
+            <Grid item xs={12} sm={6} md={4} key={item.id}>
               <Card 
                 sx={{ 
-                  height: '100%', 
+                  height: 380, // Фиксированная высота для всех карточек (без текста состава)
                   display: 'flex', 
                   flexDirection: 'column',
                   cursor: 'pointer',
-                  '&:hover': { boxShadow: 6 }
+                  borderRadius: 3,
+                  overflow: 'hidden',
+                  '&:hover': { boxShadow: 8, transform: 'translateY(-6px)', transition: '0.4s' }
                 }}
                 onClick={() => openDishModal(item)}
               >
@@ -140,16 +148,30 @@ const MenuPage = () => {
                   height="200"
                   image={item.image_url || 'https://via.placeholder.com/300x200?text=No+Image'}
                   alt={item.food_name}
+                  sx={{ objectFit: 'cover' }}
                 />
                 <CardContent sx={{ flexGrow: 1 }}>
                   <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                     {item.category}
                   </Typography>
-                  <Typography variant="h6" component="h3" gutterBottom>
+                  <Typography 
+                    variant="h6" 
+                    component="h3" 
+                    gutterBottom
+                    sx={{
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      height: '3.2rem',
+                      lineHeight: '1.6rem',
+                      mb: 0
+                    }}
+                  >
                     {item.food_name}
                   </Typography>
                   {item.calories && (
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                       {item.calories} ккал
                     </Typography>
                   )}
@@ -201,6 +223,11 @@ const MenuPage = () => {
             <Typography variant="body2" color="text.secondary" gutterBottom>
               Категория: {selectedDish.category}
             </Typography>
+            {selectedDish.ingredients && (
+              <Typography variant="body1" sx={{ mt: 1, mb: 1 }}>
+                <b>Состав:</b> {selectedDish.ingredients}
+              </Typography>
+            )}
             {selectedDish.calories && (
               <Typography variant="body2" color="text.secondary" gutterBottom>
                 Калорийность: {selectedDish.calories} ккал
@@ -244,6 +271,18 @@ const MenuPage = () => {
           </DialogActions>
         </Dialog>
       )}
+
+      {/* Уведомления (Toast) */}
+      <Snackbar 
+        open={toast.open} 
+        autoHideDuration={3000} 
+        onClose={closeToast} 
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={closeToast} severity={toast.severity} sx={{ width: '100%', boxShadow: 3 }}>
+          {toast.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

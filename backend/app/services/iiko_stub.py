@@ -10,10 +10,9 @@ class IikoStub:
         Имитация отправки заказа в iiko.
         Возвращает уникальный номер заказа.
         """
-        # Генерируем фейковый номер (как в реальной системе: префикс + цифры/буквы)
-        prefix = "ORD-" + datetime.now().strftime("%y%m%d")
-        random_part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-        order_number = f"{prefix}-{random_part}"
+        # Генерируем фейковый номер (4 случайные цифры: например, #4829)
+        random_part = random.randint(1000, 9999)
+        order_number = f"#{random_part}"
 
         # Здесь можно добавить print или лог, чтобы видеть, что "отправили"
         print(f"[IIKO STUB] Заказ отправлен: {order_number}, данные: {order_data}")

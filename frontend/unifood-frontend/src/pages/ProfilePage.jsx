@@ -248,7 +248,7 @@ const ProfilePage = () => {
                   key={amount}
                   variant="outlined"
                   size="small"
-                  onClick={() => setBalanceAmount(amount.toString())}
+                  onClick={() => setBalanceAmount(prev => ((parseFloat(prev) || 0) + amount).toString())}
                 >
                   +{amount} ₽
                 </Button>

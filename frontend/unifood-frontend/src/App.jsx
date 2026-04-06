@@ -16,6 +16,8 @@ import OrdersPage from './pages/OrdersPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ProfilePage from './pages/ProfilePage';
+import AdminPage from './pages/AdminPage';
+import AdminRoute from './components/AdminRoute';
 
 // Создаем тему Material-UI
 const theme = createTheme({
@@ -38,7 +40,33 @@ const theme = createTheme({
     fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
   },
   shape: {
-    borderRadius: 8,
+    borderRadius: 12,
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          textTransform: 'none',
+          padding: '8px 24px',
+          fontWeight: 500,
+        },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          boxShadow: '0 2px 12px 0 rgba(0,0,0,0.05)',
+          border: '1px solid #f0f0f0',
+        },
+      },
+    },
+    MuiAppBar: {
+      styleOverrides: {
+        root: {
+          boxShadow: '0 1px 3px 0 rgba(0,0,0,0.05)',
+        },
+      },
+    },
   },
 });
 
@@ -89,6 +117,16 @@ function App() {
                     <ProtectedRoute>
                       <ProfilePage />
                     </ProtectedRoute>
+                  }
+                />
+                
+                {/* Маршрут Администратора */}
+                <Route
+                  path="/admin"
+                  element={
+                    <AdminRoute>
+                      <AdminPage />
+                    </AdminRoute>
                   }
                 />
 
