@@ -26,12 +26,14 @@ def create_order_from_cart(db: Session, user_id: int) -> Order:
         raise CartEmptyException()
 
     total_price = sum(ci.quantity * (ci.menu_item.price if ci.menu_item else 0) for ci in cart_items)
+    total_price = round(total_price, 2)
 
-    if user.balance < total_price:
-        raise InsufficientBalanceException(balance=user.balance, required=total_price)
+    # Округляем до 2 знаков, чтобы избежать проблем с float
+    if round(user.balance, 2) < total_price:
+        raise InsufficientBalanceException(balance=round(user.balance, 2), required=total_price)
 
-    # Уменьшаем баланс
-    user.balance -= total_price
+    # Уменьшаем баланс (округляем до 2 знаков)
+    user.balance = round(user.balance - total_price, 2)
 
     # Формируем данные для внешней системы (stub)
     items_data = [
@@ -104,10 +106,24 @@ def get_order(db: Session, order_id: int, user_id: int) -> Order | None:
 
 
 def update_order_status(db: Session, order_id: int, new_status: OrderStatus) -> Order | None:
-    """Изменить статус заказа"""
+    """Изменить статус заказа с возвратом денег при отмене и блокировкой после 'выдан'"""
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         return None
+
+    # Задача 11: После статуса "completed" (выдан) или "cancelled" (отменён) нельзя изменить статус
+    if order.status == OrderStatus.COMPLETED:
+        raise ValueError("Нельзя изменить статус заказа после того, как он был выдан")
+    if order.status == OrderStatus.CANCELLED:
+        raise ValueError("Нельзя изменить статус отменённого заказа")
+
+    # Задача 9: Возврат денег на баланс при отмене заказа
+    if new_status == OrderStatus.CANCELLED and order.status != OrderStatus.CANCELLED:
+        # Заказ переходит в "отменён" — возвращаем деньги
+        if order.user_id is not None:
+            user = db.query(User).filter(User.id == order.user_id).first()
+            if user:
+                user.balance = round(user.balance + order.total_price, 2)
 
     order.status = new_status
     db.commit()

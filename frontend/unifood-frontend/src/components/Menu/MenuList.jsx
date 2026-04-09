@@ -11,7 +11,7 @@ const MenuList = () => {
     useEffect(() => {
         const fetchMenu = async () => {
             try {
-                const response = await axios.get('http://localhost:8000/menu/');
+                const response = await axios.get('http://localhost:8001/menu/');
                 setDishes(response.data);
             } catch (error) {
                 console.error("Ошибка загрузки меню:", error);
@@ -26,7 +26,7 @@ const MenuList = () => {
         try {
             const token = localStorage.getItem('token');
             await axios.post(
-                'http://localhost:8000/cart/',
+                'http://localhost:8001/cart/',
                 { menu_item_id: dish.id, quantity: quantity },
                 { headers: { Authorization: `Bearer ${token}` } }
             );

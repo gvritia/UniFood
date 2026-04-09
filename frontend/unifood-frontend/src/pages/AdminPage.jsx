@@ -4,7 +4,7 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Select, MenuItem, Chip, CircularProgress, Alert, TextField, Button,
   Snackbar, Divider, Dialog, DialogTitle, DialogContent, DialogActions,
-  IconButton
+  IconButton, InputAdornment
 } from '@mui/material';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import ShoppingBagIcon from '@mui/icons-material/ShoppingBag';
@@ -14,6 +14,7 @@ import CurrencyRubleIcon from '@mui/icons-material/CurrencyRuble';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
+import SearchIcon from '@mui/icons-material/Search';
 import { adminApi } from '../api/admin';
 import { menuApi } from '../api/menu';
 
@@ -78,9 +79,36 @@ const AdminPage = () => {
       setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
       showToast('Статус заказа обновлен');
     } catch (error) {
-      showToast('Ошибка при обновлении статуса', 'error');
+      const detail = error.response?.data?.detail || 'Ошибка при обновлении статуса';
+      showToast(detail, 'error');
     }
   };
+
+  // Задача 4: Поиск заказов в реальном времени (без Enter)
+  const handleOrderSearch = (value) => {
+    setOrderSearch(value);
+  };
+
+  const applyOrderSearch = async () => {
+    try {
+      setLoading(true);
+      const data = await adminApi.getOrders(orderSearch ? { search: orderSearch } : {});
+      setOrders(data);
+    } catch (error) {
+      setError('Ошибка при поиске заказов');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Debounce для поиска
+  useEffect(() => {
+    if (activeTab !== 1) return;
+    const timer = setTimeout(() => {
+      applyOrderSearch();
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [orderSearch]);
 
   const handleToggleAdmin = async (userId, currentStatus) => {
     if (!window.confirm(`Вы уверены, что хотите ${currentStatus ? 'снять' : 'назначить'} права администратора?`)) return;
@@ -206,34 +234,77 @@ const AdminPage = () => {
           )}
 
           {activeTab === 1 && (
-            <TableContainer sx={{ overflowX: 'auto' }}>
-              <Table sx={{ minWidth: 700 }}>
-                <TableHead sx={{ bgcolor: '#f5f5f5' }}>
-                  <TableRow>
-                    <TableCell fontWeight="bold">Номер</TableCell>
-                    <TableCell fontWeight="bold">Клиент</TableCell>
-                    <TableCell fontWeight="bold">Сумма</TableCell>
-                    <TableCell fontWeight="bold">Статус</TableCell>
-                    <TableCell fontWeight="bold">Действие</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {orders.map((order) => (
-                    <TableRow key={order.id} hover>
-                      <TableCell fontWeight="bold">{order.order_number}</TableCell>
-                      <TableCell>{order.user?.email || 'Гость'}</TableCell>
-                      <TableCell>{order.total_price.toFixed(2)} ₽</TableCell>
-                      <TableCell><Chip label={STATUS_LABELS[order.status]?.label || order.status} color={STATUS_LABELS[order.status]?.color || 'default'} size="small" /></TableCell>
-                      <TableCell>
-                        <Select size="small" value={order.status} onChange={(e) => handleStatusChange(order.id, e.target.value)}>
-                          {Object.keys(STATUS_LABELS).map(key => <MenuItem key={key} value={key}>{STATUS_LABELS[key].label}</MenuItem>)}
-                        </Select>
-                      </TableCell>
+            <>
+              {/* Задача 4: Поиск заказов */}
+              <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+                <TextField
+                  fullWidth
+                  placeholder="Поиск по номеру заказа..."
+                  value={orderSearch}
+                  onChange={(e) => handleOrderSearch(e.target.value)}
+                  variant="outlined"
+                  size="small"
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Box>
+              <TableContainer sx={{ overflowX: 'auto' }}>
+                <Table sx={{ minWidth: 700 }}>
+                  <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+                    <TableRow>
+                      <TableCell fontWeight="bold">Номер</TableCell>
+                      <TableCell fontWeight="bold">Клиент</TableCell>
+                      <TableCell fontWeight="bold">Сумма</TableCell>
+                      <TableCell fontWeight="bold">Статус</TableCell>
+                      <TableCell fontWeight="bold">Действие</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  </TableHead>
+                  <TableBody>
+                    {orders.map((order) => (
+                      <TableRow key={order.id} hover>
+                        <TableCell fontWeight="bold">{order.order_number}</TableCell>
+                        <TableCell>{order.user?.email || 'Гость'}</TableCell>
+                        <TableCell>{order.total_price.toFixed(2)} ₽</TableCell>
+                        <TableCell>
+                          <Chip label={STATUS_LABELS[order.status]?.label || order.status} color={STATUS_LABELS[order.status]?.color || 'default'} size="small" />
+                        </TableCell>
+                        <TableCell>
+                          {/* Задача 7: Кнопки статусов вместо Select */}
+                          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                            {order.status === 'completed' || order.status === 'cancelled' ? (
+                              // Задача 11: Нельзя менять статус "Выдан" и "Отменён"
+                              <Chip
+                                label={order.status === 'completed' ? 'Выдан' : 'Отменён'}
+                                color={order.status === 'completed' ? 'success' : 'error'}
+                                size="small"
+                              />
+                            ) : (
+                              Object.keys(STATUS_LABELS).map((key) => (
+                                <Chip
+                                  key={key}
+                                  label={STATUS_LABELS[key].label}
+                                  color={STATUS_LABELS[key].color}
+                                  variant={order.status === key ? 'filled' : 'outlined'}
+                                  size="small"
+                                  onClick={() => handleStatusChange(order.id, key)}
+                                  clickable
+                                  sx={{ cursor: 'pointer', fontSize: '0.75rem' }}
+                                />
+                              ))
+                            )}
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </>
           )}
 
           {activeTab === 2 && (

@@ -5,6 +5,7 @@ from app.schemas import schemas_user
 from app.db import get_db
 from ..api.auth import get_current_user
 from ..schemas.schemas_user import UserResponse, BalanceUpdate
+from .routers_user import validate_password_strength
 
 router = APIRouter(prefix="/profile", tags=["profile"])
 
@@ -22,6 +23,10 @@ def update_my_profile(
         db: Session = Depends(get_db)
 ):
     """Обновить информацию о текущем пользователе"""
+    # Если обновляется пароль — проверяем его сложность
+    if user_update.password is not None:
+        validate_password_strength(user_update.password)
+
     # Проверяем, что email не занят другим пользователем
     if user_update.email and user_update.email != current_user.email:
         existing_user = crud_user.user.get_user_by_email(db, email=user_update.email)

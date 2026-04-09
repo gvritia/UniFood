@@ -20,7 +20,13 @@ const LoginPage = () => {
 
     try {
       await login(email, password);
-      navigate('/menu');
+      // Админ — сразу на админ-панель, обычный пользователь — в меню
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      if (user.is_admin) {
+        navigate('/admin');
+      } else {
+        navigate('/menu');
+      }
     } catch (err) {
       setError(err.response?.data?.detail || 'Ошибка входа. Проверьте email и пароль.');
     } finally {

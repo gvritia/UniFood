@@ -73,7 +73,10 @@ def change_order_status(
     db: Session = Depends(get_db)
 ):
     """Изменить статус заказа (для демонстрации)"""
-    updated = update_order_status(db, order_id, status_update.status)
+    try:
+        updated = update_order_status(db, order_id, status_update.status)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     if not updated:
         raise HTTPException(status_code=404, detail="Заказ не найден")
     if updated.user_id != current_user.id:

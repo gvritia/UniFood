@@ -17,8 +17,9 @@ class User(Base):
     balance = Column(Float, default=0.0, nullable=False)  # Баланс пользователя
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 
-    # Связь с корзиной
+    # Связи с другими моделями
     cart_items = relationship("CartItem", back_populates="user", cascade="all, delete-orphan")
+    orders = relationship("Order", back_populates="user")  # Связь с заказами
 
     def __repr__(self):
         return f"<User {self.email}>"

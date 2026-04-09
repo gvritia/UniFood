@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Container, Paper, Typography, TextField, Button, Box, Alert,
   Divider, InputAdornment, Card, CardContent, Grid, CircularProgress
@@ -11,6 +12,7 @@ import { profileApi } from '../api/profile';
 
 const ProfilePage = () => {
   const { user, isAuthenticated, refreshUser } = useAuth();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -22,9 +24,14 @@ const ProfilePage = () => {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [currentBalance, setCurrentBalance] = useState(0);
 
+  // Задача 3: Автозаполнение суммы при переходе с параметром ?missing=X
   useEffect(() => {
     if (isAuthenticated) {
       loadProfile();
+      const missingAmount = searchParams.get('missing');
+      if (missingAmount && !isNaN(parseFloat(missingAmount))) {
+        setBalanceAmount(parseFloat(missingAmount).toFixed(2));
+      }
     }
   }, [isAuthenticated]);
 
@@ -78,26 +85,30 @@ const ProfilePage = () => {
   };
 
   const handleAddBalance = async () => {
+    // Задача 14: Округляем до 2 знаков после запятой
     const amount = parseFloat(balanceAmount);
     if (isNaN(amount) || amount <= 0) {
       setMessage({ type: 'error', text: 'Введите корректную сумму' });
       return;
     }
 
+    // Ограничиваем до 2 знаков после запятой
+    const roundedAmount = parseFloat(amount.toFixed(2));
+
     setBalanceLoading(true);
     setMessage({ type: '', text: '' });
 
     try {
-      const result = await profileApi.addBalance(amount);
+      const result = await profileApi.addBalance(roundedAmount);
       setCurrentBalance(result.balance);
       // Обновляем контекст авторизации
       await refreshUser();
-      setMessage({ type: 'success', text: `Баланс пополнен на ${amount} ₽` });
+      setMessage({ type: 'success', text: `Баланс пополнен на ${roundedAmount.toFixed(2)} ₽` });
       setBalanceAmount('');
     } catch (error) {
-      setMessage({ 
-        type: 'error', 
-        text: error.response?.data?.detail || 'Ошибка пополнения баланса' 
+      setMessage({
+        type: 'error',
+        text: error.response?.data?.detail || 'Ошибка пополнения баланса'
       });
     } finally {
       setBalanceLoading(false);
@@ -227,9 +238,19 @@ const ProfilePage = () => {
                 type="number"
                 placeholder="Сумма"
                 value={balanceAmount}
-                onChange={(e) => setBalanceAmount(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  // Задача 14: Разрешаем только числа с максимум 2 знаками после запятой
+                  if (val === '' || /^\d+(\.\d{0,2})?$/.test(val)) {
+                    setBalanceAmount(val);
+                  }
+                }}
                 InputProps={{
-                  endAdornment: <InputAdornment position="end">₽</InputAdornment>
+                  endAdornment: <InputAdornment position="end">₽</InputAdornment>,
+                  inputProps: {
+                    step: '0.01',
+                    min: '0.01'
+                  }
                 }}
               />
               <Button

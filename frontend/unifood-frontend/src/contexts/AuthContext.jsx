@@ -22,10 +22,12 @@ export const AuthProvider = ({ children }) => {
       authApi.getMe()
         .then(userData => {
           setUser(userData);
+          localStorage.setItem('user', JSON.stringify(userData));
         })
         .catch(() => {
           // Токен невалиден, удаляем его
           localStorage.removeItem('token');
+          localStorage.removeItem('user');
         })
         .finally(() => {
           setLoading(false);
@@ -38,6 +40,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     const data = await authApi.login(email, password);
     localStorage.setItem('token', data.access_token);
+    localStorage.setItem('user', JSON.stringify(data.user));
     setUser(data.user);
     return data;
   };
@@ -48,6 +51,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     setUser(null);
   };
 
@@ -55,6 +59,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const userData = await authApi.getMe();
       setUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
       return userData;
     } catch (error) {
       console.error('Ошибка обновления данных пользователя:', error);

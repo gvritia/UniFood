@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Container, Typography, Paper, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Button, Box, IconButton,
-  Divider, Alert, Chip, Card, CardContent
+  Divider, Alert, Chip, Card, CardContent, TextField,
+  Dialog, DialogTitle, DialogContent, DialogActions, Snackbar
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
@@ -17,6 +18,50 @@ const CartPage = () => {
   const { cartItems, totalPrice, loading, updateQuantity, removeItem, clearCart, refreshCart } = useCart();
   const { isAuthenticated, user, refreshUser } = useAuth();
   const navigate = useNavigate();
+  // Задача 15: Локальное состояние для ручного ввода количества
+  const [quantities, setQuantities] = useState({});
+  // Задача 2: Состояние для диалога оплаты
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [checkoutError, setCheckoutError] = useState(null);
+
+  const handleQuantityChange = (itemId, value) => {
+    // Разрешаем только числа
+    const num = parseInt(value, 10);
+    if (isNaN(num) || num < 0) {
+      setQuantities(prev => ({ ...prev, [itemId]: value === '' ? '' : 0 }));
+    } else {
+      setQuantities(prev => ({ ...prev, [itemId]: num }));
+    }
+  };
+
+  const handleQuantitySubmit = (itemId) => {
+    const qty = quantities[itemId];
+    if (qty === undefined || qty === '') return;
+    const num = parseInt(qty, 10);
+    if (isNaN(num) || num <= 0) {
+      removeItem(itemId);
+    } else {
+      updateQuantity(itemId, num);
+    }
+  };
+
+  const handleQuantityBlur = (itemId) => {
+    handleQuantitySubmit(itemId);
+  };
+
+  const incrementQuantity = (itemId, currentQty) => {
+    setQuantities(prev => ({ ...prev, [itemId]: currentQty + 1 }));
+    updateQuantity(itemId, currentQty + 1);
+  };
+
+  const decrementQuantity = (itemId, currentQty) => {
+    if (currentQty <= 1) {
+      removeItem(itemId);
+    } else {
+      setQuantities(prev => ({ ...prev, [itemId]: currentQty - 1 }));
+      updateQuantity(itemId, currentQty - 1);
+    }
+  };
 
   const handleCheckout = async () => {
     if (!isAuthenticated) {
@@ -24,10 +69,14 @@ const CartPage = () => {
       return;
     }
 
-    // Проверяем баланс
-    if (user.balance < totalPrice) {
-      alert(`Недостаточно средств на балансе!\nТекущий баланс: ${user.balance.toFixed(2)} ₽\nТребуется: ${totalPrice.toFixed(2)} ₽\n\nПополните баланс в профиле.`);
-      navigate('/profile');
+    // Задача 2+3: Проверяем баланс — открываем диалог вместо alert
+    // Округляем до 2 знаков, чтобы избежать проблем с float
+    const balance = parseFloat((user.balance || 0).toFixed(2));
+    const total = parseFloat(totalPrice.toFixed(2));
+    if (balance < total) {
+      const missing = (total - balance).toFixed(2);
+      setCheckoutError(`Недостаточно средств. Не хватает: ${missing} ₽`);
+      setPaymentDialogOpen(true);
       return;
     }
 
@@ -41,8 +90,22 @@ const CartPage = () => {
     } catch (error) {
       console.error('Ошибка оформления заказа:', error);
       const errorMessage = error.response?.data?.detail || 'Ошибка при оформлении заказа. Попробуйте позже.';
-      alert(errorMessage);
+      setCheckoutError(errorMessage);
+      setPaymentDialogOpen(true);
     }
+  };
+
+  const handleGoToProfile = () => {
+    // Задача 3: Передаём недостающую сумму в URL
+    const balance = parseFloat((user.balance || 0).toFixed(2));
+    const total = parseFloat(totalPrice.toFixed(2));
+    if (balance < total) {
+      const missing = (total - balance).toFixed(2);
+      navigate(`/profile?missing=${missing}`);
+    } else {
+      navigate('/profile');
+    }
+    setPaymentDialogOpen(false);
   };
 
   if (!isAuthenticated) {
@@ -135,11 +198,24 @@ const CartPage = () => {
                     <TableCell align="right">{item.menu_item?.price || 0} ₽</TableCell>
                     <TableCell align="center">
                       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <IconButton size="small" onClick={() => updateQuantity(item.id, item.quantity - 1)}>
+                        <IconButton size="small" onClick={() => decrementQuantity(item.id, item.quantity)}>
                           <RemoveIcon />
                         </IconButton>
-                        <Typography sx={{ mx: 2, minWidth: 20, textAlign: 'center' }}>{item.quantity}</Typography>
-                        <IconButton size="small" onClick={() => updateQuantity(item.id, item.quantity + 1)}>
+                        <TextField
+                          size="small"
+                          type="text"
+                          value={quantities[item.id] ?? item.quantity}
+                          onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                          onBlur={() => handleQuantityBlur(item.id)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') handleQuantitySubmit(item.id); }}
+                          inputProps={{
+                            style: { textAlign: 'center', minWidth: 40 },
+                            inputMode: 'numeric',
+                            pattern: '[0-9]*'
+                          }}
+                          sx={{ mx: 1, width: 70 }}
+                        />
+                        <IconButton size="small" onClick={() => incrementQuantity(item.id, item.quantity)}>
                           <AddIcon />
                         </IconButton>
                       </Box>
@@ -179,11 +255,24 @@ const CartPage = () => {
                   
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', bgcolor: '#f5f5f5', borderRadius: 1 }}>
-                      <IconButton size="small" onClick={() => updateQuantity(item.id, item.quantity - 1)}>
+                      <IconButton size="small" onClick={() => decrementQuantity(item.id, item.quantity)}>
                         <RemoveIcon fontSize="small" />
                       </IconButton>
-                      <Typography sx={{ mx: 1, fontWeight: 'bold' }}>{item.quantity}</Typography>
-                      <IconButton size="small" onClick={() => updateQuantity(item.id, item.quantity + 1)}>
+                      <TextField
+                        size="small"
+                        type="text"
+                        value={quantities[item.id] ?? item.quantity}
+                        onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                        onBlur={() => handleQuantityBlur(item.id)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleQuantitySubmit(item.id); }}
+                        inputProps={{
+                          style: { textAlign: 'center', minWidth: 30, padding: '4px' },
+                          inputMode: 'numeric',
+                          pattern: '[0-9]*'
+                        }}
+                        sx={{ mx: 0.5, width: 60 }}
+                      />
+                      <IconButton size="small" onClick={() => incrementQuantity(item.id, item.quantity)}>
                         <AddIcon fontSize="small" />
                       </IconButton>
                     </Box>
@@ -224,6 +313,43 @@ const CartPage = () => {
           </Paper>
         </>
       )}
+
+      {/* Задача 2: Диалог при ошибке оплаты */}
+      <Dialog open={paymentDialogOpen} onClose={() => setPaymentDialogOpen(false)}>
+        <DialogTitle color="error">Ошибка оплаты</DialogTitle>
+        <DialogContent>
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {checkoutError}
+          </Alert>
+          {(() => {
+            const balance = parseFloat((user.balance || 0).toFixed(2));
+            const total = parseFloat(totalPrice.toFixed(2));
+            return balance < total ? (
+              <Typography variant="body2" color="text.secondary">
+                Ваш баланс: {balance.toFixed(2)} ₽<br />
+                Сумма заказа: {total.toFixed(2)} ₽<br />
+                Не хватает: {(total - balance).toFixed(2)} ₽
+              </Typography>
+            ) : null;
+          })()}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPaymentDialogOpen(false)}>Закрыть</Button>
+          {(() => {
+            const balance = parseFloat((user.balance || 0).toFixed(2));
+            const total = parseFloat(totalPrice.toFixed(2));
+            return balance < total ? (
+              <Button
+                onClick={handleGoToProfile}
+                variant="contained"
+                color="primary"
+              >
+                Пополнить баланс
+              </Button>
+            ) : null;
+          })()}
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

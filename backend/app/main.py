@@ -10,6 +10,7 @@ from app.routers import routers_menu
 from app.routers import routers_cart
 from app.routers import routers_order
 from app.routers import routers_profile  # Новый роутер профиля
+from app.routers import routers_admin  # Роутер админки
 import logging
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -31,8 +32,8 @@ app = FastAPI(
 # CORS для фронтенда (React)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000","http://localhost:5174",
-        "http://127.0.0.1:5174", "http://127.0.0.1:3000"],
+    allow_origins=["http://localhost:3000","http://localhost:5173","http://localhost:5174",
+        "http://127.0.0.1:5173", "http://127.0.0.1:5174", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -78,6 +79,7 @@ app.include_router(routers_menu.router)
 app.include_router(routers_cart.router)
 app.include_router(routers_order.router)
 app.include_router(routers_profile.router)  # Подключаем роутер профиля
+app.include_router(routers_admin.router)  # Подключаем роутер админки
 
 @app.get("/")
 def root():
