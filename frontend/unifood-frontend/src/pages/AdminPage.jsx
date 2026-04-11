@@ -15,6 +15,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
+import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import { adminApi } from '../api/admin';
 import { menuApi } from '../api/menu';
 
@@ -132,6 +133,35 @@ const AdminPage = () => {
     }
   };
 
+  // Загрузка фото для блюда
+  const handleUploadImage = async (id) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/jpeg,image/png,image/webp';
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001';
+        const token = localStorage.getItem('token');
+        const resp = await fetch(`${API_URL}/menu/${id}/image`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData
+        });
+        if (!resp.ok) throw new Error('Ошибка загрузки');
+        const data = await resp.json();
+        setMenuItems(menuItems.map(m => m.id === id ? data : m));
+        showToast('Фото загружено');
+      } catch (error) {
+        showToast('Ошибка при загрузке фото', 'error');
+      }
+    };
+    input.click();
+  };
+
   const handleOpenMenuDialog = (item = null) => {
     if (item) {
       setEditItem(item);
@@ -147,7 +177,7 @@ const AdminPage = () => {
     } else {
       setEditItem(null);
       setMenuForm({
-        food_name: '', price: '', category: 'Завтрак', ingredients: '', description: '', image_url: '', calories: ''
+        food_name: '', price: '', category: 'Пицца', ingredients: '', description: '', image_url: '', calories: ''
       });
     }
     setMenuDialogOpen(true);
@@ -356,8 +386,15 @@ const AdminPage = () => {
                       <TableCell><Chip label={item.category} size="small" variant="outlined" /></TableCell>
                       <TableCell>{item.price} ₽</TableCell>
                       <TableCell align="right">
-                        <IconButton size="small" onClick={() => handleOpenMenuDialog(item)} color="primary"><EditIcon /></IconButton>
-                        <IconButton size="small" onClick={() => handleDeleteItem(item.id)} color="error"><DeleteIcon /></IconButton>
+                        <IconButton size="small" onClick={() => handleUploadImage(item.id)} color="info" title="Загрузить фото">
+                          <PhotoCameraIcon />
+                        </IconButton>
+                        <IconButton size="small" onClick={() => handleOpenMenuDialog(item)} color="primary">
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton size="small" onClick={() => handleDeleteItem(item.id)} color="error">
+                          <DeleteIcon />
+                        </IconButton>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -381,11 +418,12 @@ const AdminPage = () => {
             </Grid>
             <Grid item xs={6}>
               <Select fullWidth value={menuForm.category} onChange={(e) => setMenuForm({...menuForm, category: e.target.value})}>
-                <MenuItem value="Завтрак">Завтрак</MenuItem>
-                <MenuItem value="Обед">Обед</MenuItem>
-                <MenuItem value="Ужин">Ужин</MenuItem>
+                <MenuItem value="Пицца">Пицца</MenuItem>
+                <MenuItem value="Бургеры">Бургеры</MenuItem>
                 <MenuItem value="Напитки">Напитки</MenuItem>
+                <MenuItem value="Салаты">Салаты</MenuItem>
                 <MenuItem value="Десерты">Десерты</MenuItem>
+                <MenuItem value="Горячее">Горячее</MenuItem>
               </Select>
             </Grid>
             <Grid item xs={6}>

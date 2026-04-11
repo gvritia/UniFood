@@ -3,7 +3,9 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from app.db import engine, Base
+from pathlib import Path
 from app.routers import routers_user
 from app.api.auth import router as api_router
 from app.routers import routers_menu
@@ -80,6 +82,11 @@ app.include_router(routers_cart.router)
 app.include_router(routers_order.router)
 app.include_router(routers_profile.router)  # Подключаем роутер профиля
 app.include_router(routers_admin.router)  # Подключаем роутер админки
+
+# Раздача статики (фото блюд)
+STATIC_DIR = Path(__file__).parent.parent / "static"
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 @app.get("/")
 def root():
