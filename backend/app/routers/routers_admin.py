@@ -93,7 +93,10 @@ def admin_change_order_status(
     current_admin: UserResponse = Depends(get_current_admin),
 ):
     """Админ меняет статус любого заказа"""
-    updated = update_order_status(db, order_id, status_update.status)
+    try:
+        updated = update_order_status(db, order_id, status_update.status)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     if not updated:
         raise HTTPException(status_code=404, detail="Заказ не найден")
     return updated

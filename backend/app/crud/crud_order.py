@@ -13,7 +13,8 @@ def create_order_from_cart(db: Session, user_id: int) -> Order:
     if not user:
         raise ValueError("Пользователь не найден")
 
-    # Получаем корзину с полными данными блюд
+    # Получаем корзину. Используем .all(), чтобы сразу выгрузить всё в память.
+    # selectinload гарантирует, что данные о блюдах будут загружены одним махом.
     cart_items = (
         db.query(CartItem)
         .filter(CartItem.user_id == user_id)
@@ -24,17 +25,17 @@ def create_order_from_cart(db: Session, user_id: int) -> Order:
     if not cart_items:
         raise CartEmptyException()
 
-    total_price = sum(
-        ci.quantity * (ci.menu_item.price if ci.menu_item else 0)
-        for ci in cart_items
-    )
+    total_price = sum(ci.quantity * (ci.menu_item.price if ci.menu_item else 0) for ci in cart_items)
+    total_price = round(total_price, 2)
 
-    if user.balance < total_price:
-        raise InsufficientBalanceException(balance=user.balance, required=total_price)
+    # Округляем до 2 знаков, чтобы избежать проблем с float
+    if round(user.balance, 2) < total_price:
+        raise InsufficientBalanceException(balance=round(user.balance, 2), required=total_price)
 
-    user.balance -= total_price
+    # Уменьшаем баланс (округляем до 2 знаков)
+    user.balance = round(user.balance - total_price, 2)
 
-    # Данные для iiko stub
+    # Формируем данные для внешней системы (stub)
     items_data = [
         {
             "menu_item_id": ci.menu_item_id,
@@ -59,29 +60,28 @@ def create_order_from_cart(db: Session, user_id: int) -> Order:
         status=OrderStatus.NEW,
         order_number=order_number
     )
-    db.add(new_order)
-    db.flush()
-
-    # Позиции заказа
+    
+    # Добавляем позиции заказа, НЕ используя flush() раньше времени
     for ci in cart_items:
-        db.add(OrderItem(
-            order_id=new_order.id,
+        new_order.items.append(OrderItem(
             menu_item_id=ci.menu_item_id,
             quantity=ci.quantity,
             price_at_order=ci.menu_item.price if ci.menu_item else 0.0
         ))
+    
+    db.add(new_order)
 
-    # Очистка корзины
-    db.query(CartItem).filter(CartItem.user_id == user_id).delete()
+    # Очистка корзины ПЕРЕД коммитом. 
+    # Используем синхронизацию session=False, чтобы SQLite не ругался на активные объекты.
+    db.query(CartItem).filter(CartItem.user_id == user_id).delete(synchronize_session=False)
 
-    db.commit()
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise e
+
     db.refresh(new_order)
-
-    # Подгружаем связи для полного ответа
-    db.refresh(new_order, attribute_names=["items"])
-    for item in new_order.items:
-        db.refresh(item, attribute_names=["menu_item"])
-
     return new_order
 
 
@@ -106,10 +106,24 @@ def get_order(db: Session, order_id: int, user_id: int) -> Order | None:
 
 
 def update_order_status(db: Session, order_id: int, new_status: OrderStatus) -> Order | None:
-    """Изменить статус заказа"""
+    """Изменить статус заказа с возвратом денег при отмене и блокировкой после 'выдан'"""
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         return None
+
+    # Задача 11: После статуса "completed" (выдан) или "cancelled" (отменён) нельзя изменить статус
+    if order.status == OrderStatus.COMPLETED:
+        raise ValueError("Нельзя изменить статус заказа после того, как он был выдан")
+    if order.status == OrderStatus.CANCELLED:
+        raise ValueError("Нельзя изменить статус отменённого заказа")
+
+    # Задача 9: Возврат денег на баланс при отмене заказа
+    if new_status == OrderStatus.CANCELLED and order.status != OrderStatus.CANCELLED:
+        # Заказ переходит в "отменён" — возвращаем деньги
+        if order.user_id is not None:
+            user = db.query(User).filter(User.id == order.user_id).first()
+            if user:
+                user.balance = round(user.balance + order.total_price, 2)
 
     order.status = new_status
     db.commit()

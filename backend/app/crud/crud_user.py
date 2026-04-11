@@ -40,7 +40,8 @@ class CRUDUser:
         db_user = models_user.User(
             email=user.email,
             name=user.name,
-            hashed_password=hashed_password
+            hashed_password=hashed_password,
+            is_admin=user.is_admin
         )
 
         # Добавляем в сессию
@@ -91,6 +92,10 @@ class CRUDUser:
         if not db_user:
             return None
 
+        # Защита от None (на всякий случай)
+        if db_user.balance is None:
+            db_user.balance = 0.0
+            
         db_user.balance += amount
         db.commit()
         db.refresh(db_user)

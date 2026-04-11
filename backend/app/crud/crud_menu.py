@@ -16,7 +16,7 @@ class CRUDMenu:
             category: str | None = None,
             q: str | None = None
     ):
-        query = db.query(Menu).offset(skip).limit(limit)
+        query = db.query(Menu)
 
         if category:
             query = query.filter(Menu.category == category)
@@ -24,7 +24,7 @@ class CRUDMenu:
         if q:
             query = query.filter(Menu.food_name.ilike(f"%{q}%"))
 
-        return query.all()
+        return query.offset(skip).limit(limit).all()
 
     def create_menu_item(self, db: Session, item: MenuItemCreate) -> Menu:
         db_item = Menu(**item.model_dump())

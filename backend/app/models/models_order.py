@@ -25,6 +25,7 @@ class Order(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=datetime.utcnow)
 
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+    user = relationship("User", back_populates="orders")  # Связь с пользователем
 
 
 class OrderItem(Base):

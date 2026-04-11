@@ -38,15 +38,17 @@ def add_to_cart(db: Session, user_id: int, item: CartItemCreate) -> CartItem:
 
 
 def update_cart_item(db: Session, cart_item_id: int, update_data: CartItemUpdate):
-    stmt = (
-        update(CartItem)
-        .where(CartItem.id == cart_item_id)
-        .values(**update_data.model_dump(exclude_unset=True))
-        .returning(CartItem)
-    )
-    result = db.execute(stmt)
+    db_item = db.query(CartItem).filter(CartItem.id == cart_item_id).first()
+    if not db_item:
+        return None
+    
+    # Обновляем поля
+    for key, value in update_data.model_dump(exclude_unset=True).items():
+        setattr(db_item, key, value)
+    
     db.commit()
-    return result.scalar_one_or_none()
+    db.refresh(db_item)
+    return db_item
 
 
 def remove_from_cart(db: Session, cart_item_id: int):

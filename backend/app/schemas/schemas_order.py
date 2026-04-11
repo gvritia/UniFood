@@ -4,6 +4,7 @@ from typing import List, Optional
 from enum import Enum
 
 from .schemas_menu import MenuItemResponse
+from .schemas_user import UserResponse
 
 
 class OrderStatus(str, Enum):
@@ -41,6 +42,7 @@ class OrderCreate(BaseModel):
 class OrderResponse(OrderBase):
     id: int
     user_id: Optional[int] = None
+    user: Optional[UserResponse] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
     items: List[OrderItemResponse]

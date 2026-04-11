@@ -66,9 +66,10 @@ def update_cart_item_quantity(
 ):
     """Изменить количество позиции в корзине"""
     # Проверяем, что позиция принадлежит текущему пользователю
-    cart_item = get_cart_item(db, current_user.id, update_data.menu_item_id)  # можно улучшить
+    from ..models.models_cart import CartItem
+    cart_item = db.query(CartItem).filter(CartItem.id == cart_item_id, CartItem.user_id == current_user.id).first()
 
-    if not cart_item or cart_item.id != cart_item_id:
+    if not cart_item:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Позиция не найдена или не принадлежит вам"
